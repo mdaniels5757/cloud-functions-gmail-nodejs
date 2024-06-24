@@ -133,7 +133,7 @@ exports.listLabels = (req, res) => {
 
   // Retrieve the stored OAuth 2.0 access token
   return oauth.fetchToken(email)
-    .then(() => {
+    .then(async () => {
       const labelsResponse = await gmail.users.labels.list({
         userId: 'me',
       });
