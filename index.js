@@ -121,6 +121,44 @@ exports.initWatch = (req, res) => {
     });
 };
 
+exports.listLabels = (req, res) => {
+  // Require a valid email address
+  if (!req.query.emailAddress) {
+    return res.status(400).send('No emailAddress specified.');
+  }
+  const email = querystring.unescape(req.query.emailAddress);
+  if (!email.includes('@')) {
+    return res.status(400).send('Invalid emailAddress.');
+  }
+
+  // Retrieve the stored OAuth 2.0 access token
+  return oauth.fetchToken(email)
+    .then(() => {
+      const labelsResponse = await gmail.users.labels.list({
+        userId: 'me',
+      });
+      const labels = labelsResponse.data.labels;
+      if (!labels || labels.length === 0) {
+        res.write('No labels found.');
+      } else {
+        res.write('Labels:');
+        labels.forEach((label) => {
+          res.write(`- ${label.name}`);
+        });
+      }
+      res.status(200).end();
+    })
+    .catch((err) => {
+      // Handle errors
+      if (err.message === config.UNKNOWN_USER_MESSAGE) {
+        res.redirect('/oauth2init');
+      } else {
+        console.error(err);
+        res.status(500).send('Something went wrong; check the logs.');
+      }
+    });
+}
+
 /**
 * Process new messages as they are received
 */
@@ -132,9 +170,7 @@ exports.onNewMessage = (event) => {
   return oauth.fetchToken(dataObj.emailAddress)
     .then(helpers.listMessageIds)
     .then(res => helpers.getMessageById(res.messages[0].id)) // Most recent message
-    .then(msg => Promise.all([msg, helpers.getAllImages(msg)]))
-    .then(([msg, images]) => Promise.all([msg, helpers.getImageLabels(images)]))
-    .then(([msg, labels]) => {
+    .then(msg => {
       if (!labels.includes('bird')) {
         throw new Error(config.NO_LABEL_MATCH); // Exit promise chain
       }
