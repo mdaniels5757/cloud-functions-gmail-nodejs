@@ -1,0 +1,34 @@
+name: Google Cloud Functions CD
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+    
+jobs:
+  job_id:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - uses: 'actions/checkout@v4'
+
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+
+    - id: 'deploy'
+      uses: 'google-github-actions/deploy-cloud-functions@v3'
+      timeout-minutes: 10
+      with:
+        name: ${{ secrets.GCP_FUNCTION_NAME }}
+        runtime: 'nodejs22'
+
+    # Example of using the output
+    - id: 'test'
+      run: 'curl "${{ steps.deploy.outputs.url }}"'
