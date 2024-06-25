@@ -8,34 +8,112 @@ on:
     branches: [ "master" ]
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         node-version: [22.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    # - run: npm test
-    - run: npm run lint
-    - id: 'auth'
-      uses: 'google-github-actions/auth@v2'
-      with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm run lint
+      - uses: actions/upload-artifact@v4
+        with:
+          path: .
+          name: built
+  deploy_oauth2init:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - id: 'deploy_oauth2init'
+        uses: 'google-github-actions/deploy-cloud-functions@v3'
+        timeout-minutes: 10
+        with:
+          name: oauth2init
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          runtime: 'nodejs22'
+          secrets: |-
+            GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+  deploy_oauth2callback:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - id: 'deploy_oauth2callback'
+        uses: 'google-github-actions/deploy-cloud-functions@v3'
+        timeout-minutes: 10
+        with:
+          name: oauth2callback
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          runtime: 'nodejs22'
+          secrets: |-
+            GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+  deploy_listLabels:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - id: 'deploy_listLabels'
+        uses: 'google-github-actions/deploy-cloud-functions@v3'
+        timeout-minutes: 10
+        with:
+          name: listLabels
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          runtime: 'nodejs22'
+          secrets: |-
+            GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+  deploy_onNewMessage:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - id: 'deploy_onNewMessage'
+        uses: 'google-github-actions/deploy-cloud-functions@v3'
+        timeout-minutes: 10
+        with:
+          name: onNewMessage
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          runtime: 'nodejs22'
+          secrets: |-
+            GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+            PUSHOVER_USER_KEY=projects/222166737032/secrets/PUSHOVER_USER_KEY
 
-    - id: 'deploy'
-      uses: 'google-github-actions/deploy-cloud-functions@v3'
-      timeout-minutes: 10
-      with:
-        name: ${{ secrets.GCP_FUNCTION_NAME }}
-        runtime: 'nodejs22'
