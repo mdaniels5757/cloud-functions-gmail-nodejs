@@ -26,10 +26,12 @@
     "pify": "^4.0.0"
   },
   "devDependencies": {
-    "mocha": "^8.0.0",
-    "semistandard": "^14.0.1"
+    "mocha": "^10.5.0",
+    "semistandard": "^14.2.3"
   },
   "semistandard": {
-    "env": [ "mocha" ]
+    "env": [
+      "mocha"
+    ]
   }
 }

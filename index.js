@@ -15,7 +15,7 @@
 
 'use strict';
 
-const {google} = require('googleapis');
+const { google } = require('googleapis');
 const gmail = google.gmail('v1');
 const querystring = require('querystring');
 const pify = require('pify');
@@ -171,7 +171,7 @@ exports.onNewMessage = (event) => {
     .then(helpers.listMessageIds)
     .then(res => helpers.getMessageById(res.messages[0].id)) // Most recent message
     .then(msg => {
-      //TODO: do something
+      // TODO: do something
     })
     .catch((err) => {
       // Handle unexpected errors
