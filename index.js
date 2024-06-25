@@ -135,7 +135,7 @@ exports.listLabels = (req, res) => {
   return oauth.fetchToken(email)
     .then(async () => {
       const labelsResponse = await gmail.users.labels.list({
-        userId: 'me',
+        userId: 'me'
       });
       const labels = labelsResponse.data.labels;
       if (!labels || labels.length === 0) {
@@ -157,7 +157,7 @@ exports.listLabels = (req, res) => {
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
-}
+};
 
 /**
 * Process new messages as they are received
@@ -171,11 +171,11 @@ exports.onNewMessage = (event) => {
     .then(helpers.listMessageIds)
     .then(res => helpers.getMessageById(res.messages[0].id)) // Most recent message
     .then(msg => {
-      if (!labels.includes('bird')) {
-        throw new Error(config.NO_LABEL_MATCH); // Exit promise chain
-      }
+      // if (!labels.includes('bird')) {
+      //   throw new Error(config.NO_LABEL_MATCH); // Exit promise chain
+      // }
 
-      return helpers.labelMessage(msg.id, ['STARRED']);
+      // return helpers.labelMessage(msg.id, ['STARRED']);
     })
     .catch((err) => {
       // Handle unexpected errors
