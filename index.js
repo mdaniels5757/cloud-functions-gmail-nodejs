@@ -18,7 +18,7 @@
 const { google } = require('googleapis');
 const gmail = google.gmail('v1');
 const querystring = require('querystring');
-const {pify} = import('pify');
+const { pify } = import('pify');
 const config = require('./config');
 const oauth = require('./lib/oauth');
 const helpers = require('./lib/helpers');
