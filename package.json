@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "mocha": "^10.5.0",
-    "semistandard": "^14.0.1"
+    "semistandard": "^14.2.3"
   },
   "semistandard": {
     "env": [
