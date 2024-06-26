@@ -100,7 +100,7 @@ exports.initWatch = (req, res) => {
         auth: oauth.client,
         userId: 'me',
         resource: {
-          labelIds: ['INBOX'],
+          // labelIds: ['INBOX'],
           topicName: config.TOPIC_NAME
         }
       });

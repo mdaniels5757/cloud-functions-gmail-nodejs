@@ -15,8 +15,8 @@
 
 const nconf = require('nconf');
 
-nconf.env()
-  .file({ file: 'config.json' });
+nconf.env();
+//   .file({ file: 'config.json' });
 
 // Configuration constants
 const GCF_REGION = nconf.get('GCF_REGION');

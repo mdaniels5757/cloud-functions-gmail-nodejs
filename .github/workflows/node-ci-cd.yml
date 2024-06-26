@@ -46,6 +46,10 @@ jobs:
           name: oauth2init
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           runtime: 'nodejs22'
+          environment_variables: |-
+            GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
@@ -68,6 +72,10 @@ jobs:
           name: oauth2callback
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           runtime: 'nodejs22'
+          environment_variables: |-
+            GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
@@ -90,6 +98,10 @@ jobs:
           name: listLabels
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           runtime: 'nodejs22'
+          environment_variables: |-
+            GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
@@ -112,8 +124,13 @@ jobs:
           name: onNewMessage
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           runtime: 'nodejs22'
+          environment_variables: |-
+            GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
             PUSHOVER_USER_KEY=projects/222166737032/secrets/PUSHOVER_USER_KEY
+          event_trigger_pubsub_topic: projects/${{ secrets.GCLOUD_PROJECT }}/topics/${{ secrets.TOPIC_ID }}
 
