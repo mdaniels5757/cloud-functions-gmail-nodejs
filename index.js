@@ -18,7 +18,6 @@
 const { google } = require('googleapis');
 const gmail = google.gmail('v1');
 const querystring = require('querystring');
-const { pify } = import('pify');
 const config = require('./config');
 const oauth = require('./lib/oauth');
 const helpers = require('./lib/helpers');
@@ -94,9 +93,9 @@ exports.initWatch = (req, res) => {
 
   // Retrieve the stored OAuth 2.0 access token
   return oauth.fetchToken(email)
-    .then(() => {
+    .then(async () => {
       // Initialize a watch
-      return pify(gmail.users.watch)({
+      return await gmail.users.watch({
         auth: oauth.client,
         userId: 'me',
         resource: {

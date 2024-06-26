@@ -22,8 +22,7 @@
     "@google-cloud/vision": "^4.3.0",
     "cheerio": "^1.0.0-rc.12",
     "googleapis": "^140.0.0",
-    "nconf": "^0.12.1",
-    "pify": "^6.1.0"
+    "nconf": "^0.12.1"
   },
   "devDependencies": {
     "mocha": "^10.5.0",
