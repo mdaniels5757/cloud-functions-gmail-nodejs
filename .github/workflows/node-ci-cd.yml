@@ -48,6 +48,7 @@ jobs:
           runtime: 'nodejs22'
           environment_variables: |-
             GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            DATASTORE_PROJECT_ID=${{ secrets.GCLOUD_PROJECT }}
             TOPIC_ID=${{ secrets.TOPIC_ID }}
             GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
@@ -74,6 +75,7 @@ jobs:
           runtime: 'nodejs22'
           environment_variables: |-
             GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            DATASTORE_PROJECT_ID=${{ secrets.GCLOUD_PROJECT }}
             TOPIC_ID=${{ secrets.TOPIC_ID }}
             GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
@@ -100,6 +102,34 @@ jobs:
           runtime: 'nodejs22'
           environment_variables: |-
             GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            DATASTORE_PROJECT_ID=${{ secrets.GCLOUD_PROJECT }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            GCF_REGION=${{ secrets.GCF_REGION }}
+          secrets: |-
+            GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+  deploy_initWatch:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+      - id: 'deploy_initWatch'
+        uses: 'google-github-actions/deploy-cloud-functions@v3'
+        timeout-minutes: 10
+        with:
+          name: initWatch
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          runtime: 'nodejs22'
+          environment_variables: |-
+            GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            DATASTORE_PROJECT_ID=${{ secrets.GCLOUD_PROJECT }}
             TOPIC_ID=${{ secrets.TOPIC_ID }}
             GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-
@@ -126,6 +156,7 @@ jobs:
           runtime: 'nodejs22'
           environment_variables: |-
             GCLOUD_PROJECT=${{ secrets.GCLOUD_PROJECT }}
+            DATASTORE_PROJECT_ID=${{ secrets.GCLOUD_PROJECT }}
             TOPIC_ID=${{ secrets.TOPIC_ID }}
             GCF_REGION=${{ secrets.GCF_REGION }}
           secrets: |-

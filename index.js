@@ -50,62 +50,34 @@ exports.oauth2callback = (req, res) => {
   const code = req.query.code;
   console.error('In oauth2callback:51');
   // OAuth2: Exchange authorization code for access token
-  return new Promise((resolve, reject) => {
-    console.error('In oauth2callback:54');
-    oauth.client.getToken(code, (err, token) =>
-      (err ? reject(err) : resolve(token))
-    );
-  }, (err) => {
-    // Handle error
-    console.error(err);
-    console.error('In oauth2callback:61');
-    res.status(500).send('Something went wrong; check the logs.');
-  })
-    .then((token) => {
-      console.error('In oauth2callback:64');
-      // Get user email (to use as a Datastore key)
-      oauth.client.credentials = token;
-      const promiseTemp = Promise.all([token, oauth.getEmailAddress()]);
-      console.error('In oauth2callback:68');
-      return promiseTemp;
-    }, (err) => {
-      // Handle error
-      console.error(err);
-      console.error('In oauth2callback:74');
-      res.status(500).send('Something went wrong; check the logs.');
+  oauth.client.getToken(code)
+    .then(({ tokens }) => {
+      console.error('In oauth2callback:60');
+      oauth.client.setCredentials(tokens);
     })
-    .then(([token, emailAddress]) => {
+    .then(() => {
+      // Get user email (to use as a Datastore key)
+      return oauth.getEmailAddress();
+    })
+    .then((emailAddress) => {
       // Store token in Datastore
-      console.error('In oauth2callback:77');
-      const promiseTemp = Promise.all([
+      return Promise.all([
         emailAddress,
         oauth.saveToken(emailAddress)
       ]);
-      console.error('In oauth2callback:82');
-      console.error('promiseTemp = ' + promiseTemp);
-      return promiseTemp;
-    } /*, (err) => {
-      // Handle error
-      console.error(err);
-      console.error('In oauth2callback:90');
-      res.status(500).send('Something went wrong; check the logs.');
-    } */)
-    .then((val) => { // Was [emailAddress], then [emailAddress, _] instead of val
+    })
+    .then(([emailAddress, other]) => {
       // Respond to request
+      console.error('In oauth2callback:88');
+      console.error('emailAddress = ' + emailAddress);
+      console.error('other = ' + other);
+      res.redirect(`/initWatch?emailAddress=${querystring.escape(emailAddress)}`);
       console.error('In oauth2callback:92');
-      console.error('val = ' + val);
-      // res.redirect(`/initWatch?emailAddress=${querystring.escape(val[0])}`);
-      console.error('In oauth2callback:95');
-    } /*, (err) => {
-      // Handle error
-      console.error(err);
-      console.error('In oauth2callback:102');
-      res.status(500).send('Something went wrong; check the logs.');
-    } */)
+    })
     .catch((err) => {
       // Handle error
       console.error(err);
-      console.error('In oauth2callback:108');
+      console.error('In oauth2callback:97');
       res.status(500).send('Something went wrong; check the logs.');
     });
 };
