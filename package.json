@@ -3,13 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "license": "Apache-2.0",
-  "author": "Google LLC",
+  "contributors": ["Google LLC", "Michael Daniels"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/GoogleCloudPlatform/cloud-functions-gmail-nodejs.git"
+    "url": "https://github.com/mdaniels5757/cloud-functions-gmail-nodejs.git"
   },
   "engines": {
-    "node": ">=8.13.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "fix": "semistandard --fix",
@@ -18,11 +18,7 @@
   },
   "dependencies": {
     "@google-cloud/datastore": "^9.0.0",
-    "@google-cloud/debug-agent": "^9.0.1",
-    "@google-cloud/vision": "^4.3.0",
-    "cheerio": "^1.0.0-rc.12",
-    "googleapis": "^140.0.0",
-    "nconf": "^0.12.1"
+    "googleapis": "^140.0.0"
   },
   "devDependencies": {
     "mocha": "^10.5.0",

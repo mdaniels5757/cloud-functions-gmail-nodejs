@@ -16,11 +16,10 @@
 'use strict';
 
 const { google } = require('googleapis');
-const gmail = google.gmail('v1');
+const oauth = require('./lib/oauth');
+const gmail = google.gmail({ version: 'v1', auth: oauth.client });
 const querystring = require('querystring');
 const config = require('./config');
-const oauth = require('./lib/oauth');
-const helpers = require('./lib/helpers');
 
 /**
  * Request an OAuth 2.0 authorization code
@@ -48,16 +47,19 @@ exports.oauth2init = (req, res) => {
 exports.oauth2callback = (req, res) => {
   // Get authorization code from request
   const code = req.query.code;
-  console.error('In oauth2callback:51');
   // OAuth2: Exchange authorization code for access token
   oauth.client.getToken(code)
     .then(({ tokens }) => {
-      console.error('In oauth2callback:60');
       oauth.client.setCredentials(tokens);
     })
     .then(() => {
       // Get user email (to use as a Datastore key)
-      return oauth.getEmailAddress();
+      return gmail.users.getProfile({
+        auth: oauth.client,
+        userId: 'me'
+      }).then((profile) => {
+        return profile.data.emailAddress;
+      });
     })
     .then((emailAddress) => {
       // Store token in Datastore
@@ -66,18 +68,13 @@ exports.oauth2callback = (req, res) => {
         oauth.saveToken(emailAddress)
       ]);
     })
-    .then(([emailAddress, other]) => {
+    .then(([emailAddress, _]) => {
       // Respond to request
-      console.error('In oauth2callback:88');
-      console.error('emailAddress = ' + emailAddress);
-      console.error('other = ' + other);
       res.redirect(`/initWatch?emailAddress=${querystring.escape(emailAddress)}`);
-      console.error('In oauth2callback:92');
     })
     .catch((err) => {
       // Handle error
       console.error(err);
-      console.error('In oauth2callback:97');
       res.status(500).send('Something went wrong; check the logs.');
     });
 };
@@ -97,9 +94,9 @@ exports.initWatch = (req, res) => {
 
   // Retrieve the stored OAuth 2.0 access token
   return oauth.fetchToken(email)
-    .then(async () => {
+    .then(() => {
       // Initialize a watch
-      return await gmail.users.watch({
+      return gmail.users.watch({
         auth: oauth.client,
         userId: 'me',
         resource: {
@@ -123,6 +120,7 @@ exports.initWatch = (req, res) => {
     });
 };
 
+// MUST NOT BE PUBLIC (unless everyone consents to all their labels being public)
 exports.listLabels = (req, res) => {
   // Require a valid email address
   if (!req.query.emailAddress) {
@@ -133,7 +131,8 @@ exports.listLabels = (req, res) => {
     return res.status(400).send('Invalid emailAddress.');
   }
 
-  // Retrieve the stored OAuth 2.0 access token
+  // Retrieve the stored OAuth 2.0 access token.
+  // NOT SECURE: ANYONE CAN ACCESS (IF PUBLIC) the label info.
   return oauth.fetchToken(email)
     .then(async () => {
       const labelsResponse = await gmail.users.labels.list({
@@ -170,11 +169,19 @@ exports.onNewMessage = (event) => {
   const dataObj = JSON.parse(dataStr);
 
   return oauth.fetchToken(dataObj.emailAddress)
-    .then(helpers.listMessageIds)
-    .then(res => helpers.getMessageById(res.messages[0].id)) // Most recent message
+    .then(() => {
+      gmail.users.history({
+        userId: 'me',
+        startHistoryId: dataObj.historyId
+      });
+    })
+    .then(history => gmail.users.messages.get({
+      userId: 'me',
+      id: history[0].id,
+      format: 'metadata'
+    })) // Most recent message
     .then(msg => {
-      // TODO: do something
-      // if (msg.)
+      console.error(JSON.stringify(msg, null, 4));
     })
     .catch((err) => {
       // Handle unexpected errors
