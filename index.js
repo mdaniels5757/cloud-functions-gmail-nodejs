@@ -30,7 +30,7 @@ const helpers = require('./lib/helpers');
 exports.oauth2init = (req, res) => {
   // Define OAuth2 scopes
   const scopes = [
-    'https://www.googleapis.com/auth/gmail.modify'
+    'https://www.googleapis.com/auth/gmail.readonly'
   ];
 
   // Generate + redirect to OAuth2 consent form URL
@@ -48,28 +48,38 @@ exports.oauth2init = (req, res) => {
 exports.oauth2callback = (req, res) => {
   // Get authorization code from request
   const code = req.query.code;
-
+  console.error('In oauth2callback:51');
   // OAuth2: Exchange authorization code for access token
   return new Promise((resolve, reject) => {
+    console.error('In oauth2callback:54');
     oauth.client.getToken(code, (err, token) =>
       (err ? reject(err) : resolve(token))
     );
   })
     .then((token) => {
+      console.error('In oauth2callback:60');
       // Get user email (to use as a Datastore key)
       oauth.client.credentials = token;
-      return Promise.all([token, oauth.getEmailAddress()]);
+      const promiseTemp = Promise.all([token, oauth.getEmailAddress()]);
+      console.error('In oauth2callback:64');
+      return promiseTemp;
     })
     .then(([token, emailAddress]) => {
       // Store token in Datastore
-      return Promise.all([
+      console.error('In oauth2callback:69');
+      const promiseTemp = Promise.all([
         emailAddress,
         oauth.saveToken(emailAddress)
       ]);
+      console.error('In oauth2callback:74');
+      console.error('promiseTemp = ' + promiseTemp);
+      return promiseTemp;
     })
-    .then(([emailAddress]) => {
+    .then(([emailAddress, _]) => {
       // Respond to request
+      console.error('In oauth2callback:79');
       res.redirect(`/initWatch?emailAddress=${querystring.escape(emailAddress)}`);
+      console.error('In oauth2callback:81');
     })
     .catch((err) => {
       // Handle error
@@ -99,7 +109,6 @@ exports.initWatch = (req, res) => {
         auth: oauth.client,
         userId: 'me',
         resource: {
-          // labelIds: ['INBOX'],
           topicName: config.TOPIC_NAME
         }
       });
@@ -171,6 +180,7 @@ exports.onNewMessage = (event) => {
     .then(res => helpers.getMessageById(res.messages[0].id)) // Most recent message
     .then(msg => {
       // TODO: do something
+      // if (msg.)
     })
     .catch((err) => {
       // Handle unexpected errors
