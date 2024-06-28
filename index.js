@@ -16,15 +16,11 @@
 'use strict';
 
 const { google } = require('googleapis');
+const config = require('./config');
 const oauth = require('./lib/oauth');
 const gmail = google.gmail({ version: 'v1', auth: oauth.client });
 const querystring = require('querystring');
-const config = require('./config');
 const { Logging } = require('@google-cloud/logging');
-const createDOMPurify = require('dompurify');
-const { JSDOM } = require('jsdom');
-const window = new JSDOM('').window;
-const DOMPurify = createDOMPurify(window);
 
 const logging = new Logging();
 const log = logging.logSync('gmail-notifier');
@@ -132,6 +128,11 @@ exports.initWatch = (req, res) => {
 
 // NOT private: anyone can access the label info.
 exports.listLabels = (req, res) => {
+  const createDOMPurify = require('dompurify');
+  const { JSDOM } = require('jsdom');
+  const window = new JSDOM('').window;
+  const DOMPurify = createDOMPurify(window);
+
   // Require a valid email address
   if (!req.query.emailAddress) {
     return res.status(400).send('No emailAddress specified.');
@@ -179,6 +180,10 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
+  const { Datastore } = require('@google-cloud/datastore');
+  const datastore = new Datastore({ databaseId: 'gmail-notifier' });
+  // const request = require('teeny-request').teenyRequest;
+
   log.info(log.entry({}, 'New event!'));
   log.debug(log.entry({}, 'Raw event:\n' + JSON.stringify(event, null, 4)));
   // Parse the Pub/Sub message
@@ -190,14 +195,30 @@ exports.onNewMessage = (event) => {
   const emailAddress = dataObj.emailAddress;
   return oauth.fetchToken(emailAddress)
     .then(() => {
+      // See if there's a key
+      return datastore.get({
+        key: datastore.key(['lastHistoryId', emailAddress])
+      }).catch(
+        // No such key yet if we got here, so we'll store one.
+        // We'll miss this message, but that's ok.
+        datastore.save({
+          key: datastore.key(['lastHistoryId', emailAddress]),
+          data: dataObj.historyId
+        })
+      );
+    })
+    .then((lastHistoryId) => {
+      log.error(log.entry({}, 'lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4)));
       return gmail.users.history.list({
         userId: emailAddress,
-        startHistoryId: dataObj.historyId,
+        startHistoryId: lastHistoryId[0],
         historyTypes: ['messageAdded']
       });
     })
     .then((history) => {
       log.error(log.entry({}, 'History:\n' + JSON.stringify(history, null, 4)));
+      log.error(log.entry({}, 'History[0]:\n' + JSON.stringify(history[0], null, 4)));
+      log.error(log.entry({}, 'History.history:\n' + JSON.stringify(history.history, null, 4)));
       return gmail.users.messages.get({
         userId: emailAddress,
         id: history[0].messagesAdded.message.id,
@@ -208,6 +229,13 @@ exports.onNewMessage = (event) => {
       log.error(log.entry({}, 'Message metadata:\n' + JSON.stringify(msg, null, 4)));
       log.error(log.entry({}, 'URL for message: https://mail.google.com/mail?authuser=' +
         emailAddress + '#all/' + msg.id));
+      // const notification = {
+
+      // }
+
+      // request(notification, function (notifError, notifResponse, notifBody) {
+      //   if (notifError) log.error(log.entry({}, ))
+      // });
     })
     .catch((err) => {
       // Handle unexpected errors
