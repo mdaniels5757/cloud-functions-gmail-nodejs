@@ -163,5 +163,5 @@ jobs:
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
             PUSHOVER_USER_KEY=projects/222166737032/secrets/PUSHOVER_USER_KEY
+          event_trigger_type: google.cloud.pubsub.topic.v1.messagePublished
           event_trigger_pubsub_topic: projects/${{ secrets.GCLOUD_PROJECT }}/topics/${{ secrets.TOPIC_ID }}
-
