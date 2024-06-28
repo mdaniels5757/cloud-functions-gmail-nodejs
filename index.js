@@ -168,9 +168,9 @@ exports.listLabels = (req, res) => {
 */
 exports.onNewMessage = (event) => {
   console.error('New event!');
-  console.error('Raw event: ' + JSON.stringify(event, null, 4));
+  console.error('Raw event: ' + JSON.stringify(Buffer.from(event), null, 4));
   // Parse the Pub/Sub message
-  const dataStr = Buffer.from(event.data.data, 'base64').toString('ascii');
+  const dataStr = Buffer.from(event.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
   console.error('Decoded' + JSON.stringify(dataObj, null, 4));
