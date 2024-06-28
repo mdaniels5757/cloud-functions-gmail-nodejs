@@ -15,10 +15,12 @@
 
 'use strict';
 
-const assert = require('assert');
+// TODO:
 
-describe('cloud functions gmail', () => {
-  it('should have tests', () => {
-    assert.ok(true);
-  });
-});
+// const assert = require('assert');
+
+// describe('cloud functions gmail', () => {
+//   it('should have tests', () => {
+//     assert.ok(true);
+//   });
+// });

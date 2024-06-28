@@ -20,14 +20,24 @@ const oauth = require('./lib/oauth');
 const gmail = google.gmail({ version: 'v1', auth: oauth.client });
 const querystring = require('querystring');
 const config = require('./config');
+const { Logging } = require('@google-cloud/logging');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
+
+const projectId = config.GCLOUD_PROJECT;
+const logging = new Logging({ projectId });
+const log = logging.logSync('gmail-notifier');
 
 /**
  * Request an OAuth 2.0 authorization code
  * Only new users (or those who want to refresh
  * their auth data) need visit this page
  */
-exports.oauth2init = (req, res) => {
+exports.oauth2init = (_, res) => {
   // Define OAuth2 scopes
+
   const scopes = [
     'https://www.googleapis.com/auth/gmail.readonly'
   ];
@@ -49,17 +59,18 @@ exports.oauth2callback = (req, res) => {
   const code = req.query.code;
   // OAuth2: Exchange authorization code for access token
   oauth.client.getToken(code)
-    .then(({ tokens }) => {
-      oauth.client.setCredentials(tokens);
+    .then((r) => {
+      oauth.client.setCredentials(r.tokens);
     })
     .then(() => {
       // Get user email (to use as a Datastore key)
       return gmail.users.getProfile({
         auth: oauth.client,
         userId: 'me'
-      }).then((profile) => {
-        return profile.data.emailAddress;
       });
+    })
+    .then((profile) => {
+      return Promise.resolve(profile.data.emailAddress);
     })
     .then((emailAddress) => {
       // Store token in Datastore
@@ -74,7 +85,7 @@ exports.oauth2callback = (req, res) => {
     })
     .catch((err) => {
       // Handle error
-      console.error(err);
+      log.error(err);
       res.status(500).send('Something went wrong; check the logs.');
     });
 };
@@ -98,7 +109,7 @@ exports.initWatch = (req, res) => {
       // Initialize a watch
       return gmail.users.watch({
         auth: oauth.client,
-        userId: 'me',
+        userId: email,
         resource: {
           topicName: config.TOPIC_NAME
         }
@@ -114,13 +125,13 @@ exports.initWatch = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        console.error(err);
+        log.error(err);
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
 };
 
-// MUST NOT BE PUBLIC (unless everyone consents to all their labels being public)
+// NOT private: anyone can access the label info.
 exports.listLabels = (req, res) => {
   // Require a valid email address
   if (!req.query.emailAddress) {
@@ -132,21 +143,23 @@ exports.listLabels = (req, res) => {
   }
 
   // Retrieve the stored OAuth 2.0 access token.
-  // NOT SECURE: ANYONE CAN ACCESS (IF PUBLIC) the label info.
   return oauth.fetchToken(email)
     .then(async () => {
       const labelsResponse = await gmail.users.labels.list({
-        userId: 'me'
+        userId: email
       });
+
       const labels = labelsResponse.data.labels;
+
       if (!labels || labels.length === 0) {
         res.write('No labels found.');
       } else {
         res.write('Labels:');
         res.write('<table>');
         res.write('<tr><th>label</th><th>id</th></tr>');
+
         labels.forEach((label) => {
-          res.write(`<tr><td>${label.name}</td><td>${label.id}</td></tr>`);
+          res.write(`<tr><td>${DOMPurify.sanitize(label.name)}</td><td>${DOMPurify.sanitize(label.id)}</td></tr>`);
         });
         res.write('</table>');
       }
@@ -157,7 +170,7 @@ exports.listLabels = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        console.error(err);
+        log.error(err);
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
@@ -167,33 +180,40 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
-  console.error('New event!');
-  console.error('Raw event: ' + JSON.stringify(Buffer.from(event), null, 4));
+  log.info('New event!');
+  log.debug('Raw event:\n' + JSON.stringify(event, null, 4));
   // Parse the Pub/Sub message
   const dataStr = Buffer.from(event.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
-  console.error('Decoded' + JSON.stringify(dataObj, null, 4));
+  log.debug('Decoded:\n' + JSON.stringify(dataObj, null, 4));
 
-  return oauth.fetchToken(dataObj.emailAddress)
+  const emailAddress = dataObj.emailAddress;
+  return oauth.fetchToken(emailAddress)
     .then(() => {
-      gmail.users.history({
-        userId: 'me',
-        startHistoryId: dataObj.historyId
+      return gmail.users.history.list({
+        userId: emailAddress,
+        startHistoryId: dataObj.historyId,
+        historyTypes: ['messageAdded']
       });
     })
-    .then(history => gmail.users.messages.get({
-      userId: 'me',
-      id: history[0].id,
-      format: 'metadata'
-    })) // Most recent message
-    .then(msg => {
-      console.error('Message metadata: ' + JSON.stringify(msg, null, 4));
+    .then((history) => {
+      log.error('History:\n' + JSON.stringify(history, null, 4));
+      return gmail.users.messages.get({
+        userId: emailAddress,
+        id: history[0].messagesAdded.message.id,
+        format: 'metadata'
+      });
+    }) // Most recent message
+    .then((msg) => {
+      log.error('Message metadata:\n' + JSON.stringify(msg, null, 4));
+      log.error('URL for message: https://mail.google.com/mail?authuser=' +
+        emailAddress + '#all/' + msg.id);
     })
     .catch((err) => {
       // Handle unexpected errors
       if (!err.message || err.message !== config.NO_LABEL_MATCH) {
-        console.error(err);
+        log.error(err);
       }
     });
 };
