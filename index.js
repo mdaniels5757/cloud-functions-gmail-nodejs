@@ -143,9 +143,12 @@ exports.listLabels = (req, res) => {
         res.write('No labels found.');
       } else {
         res.write('Labels:');
+        res.write('<table>');
+        res.write('<tr><th>label</th><th>id</th></tr>');
         labels.forEach((label) => {
-          res.write(`- ${label.name}`);
+          res.write(`<tr><td>${label.name}</td><td>${label.id}</td></tr>`);
         });
+        res.write('</table>');
       }
       res.status(200).end();
     })
@@ -168,6 +171,7 @@ exports.onNewMessage = (event) => {
   const dataStr = Buffer.from(event.data.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
+  console.error('New event! From pubsub: ' + JSON.stringify(dataObj, null, 4));
   return oauth.fetchToken(dataObj.emailAddress)
     .then(() => {
       gmail.users.history({
@@ -181,7 +185,7 @@ exports.onNewMessage = (event) => {
       format: 'metadata'
     })) // Most recent message
     .then(msg => {
-      console.error(JSON.stringify(msg, null, 4));
+      console.error('Message metadata: ' + JSON.stringify(msg, null, 4));
     })
     .catch((err) => {
       // Handle unexpected errors
