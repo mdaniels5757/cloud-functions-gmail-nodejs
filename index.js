@@ -167,11 +167,14 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
+  console.error('New event!');
+  console.error('Raw event: ' + JSON.stringify(event, null, 4));
   // Parse the Pub/Sub message
   const dataStr = Buffer.from(event.data.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
-  console.error('New event! From pubsub: ' + JSON.stringify(dataObj, null, 4));
+  console.error('Decoded' + JSON.stringify(dataObj, null, 4));
+
   return oauth.fetchToken(dataObj.emailAddress)
     .then(() => {
       gmail.users.history({
