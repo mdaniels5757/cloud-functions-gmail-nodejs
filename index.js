@@ -26,8 +26,7 @@ const { JSDOM } = require('jsdom');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
-const projectId = config.GCLOUD_PROJECT;
-const logging = new Logging({ projectId });
+const logging = new Logging();
 const log = logging.logSync('gmail-notifier');
 
 /**
@@ -85,7 +84,7 @@ exports.oauth2callback = (req, res) => {
     })
     .catch((err) => {
       // Handle error
-      log.error(err);
+      log.error(log.entry({}, err));
       res.status(500).send('Something went wrong; check the logs.');
     });
 };
@@ -125,7 +124,7 @@ exports.initWatch = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        log.error(err);
+        log.error(log.entry({}, err));
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
@@ -170,7 +169,7 @@ exports.listLabels = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        log.error(err);
+        log.error(log.entry({}, err));
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
@@ -180,13 +179,13 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
-  log.info('New event!');
-  log.debug('Raw event:\n' + JSON.stringify(event, null, 4));
+  log.info(log.entry({}, 'New event!'));
+  log.debug(log.entry({}, 'Raw event:\n' + JSON.stringify(event, null, 4)));
   // Parse the Pub/Sub message
   const dataStr = Buffer.from(event.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
-  log.debug('Decoded:\n' + JSON.stringify(dataObj, null, 4));
+  log.debug(log.entry({}, 'Decoded:\n' + JSON.stringify(dataObj, null, 4)));
 
   const emailAddress = dataObj.emailAddress;
   return oauth.fetchToken(emailAddress)
@@ -198,7 +197,7 @@ exports.onNewMessage = (event) => {
       });
     })
     .then((history) => {
-      log.error('History:\n' + JSON.stringify(history, null, 4));
+      log.error(log.entry({}, 'History:\n' + JSON.stringify(history, null, 4)));
       return gmail.users.messages.get({
         userId: emailAddress,
         id: history[0].messagesAdded.message.id,
@@ -206,14 +205,14 @@ exports.onNewMessage = (event) => {
       });
     }) // Most recent message
     .then((msg) => {
-      log.error('Message metadata:\n' + JSON.stringify(msg, null, 4));
-      log.error('URL for message: https://mail.google.com/mail?authuser=' +
-        emailAddress + '#all/' + msg.id);
+      log.error(log.entry({}, 'Message metadata:\n' + JSON.stringify(msg, null, 4)));
+      log.error(log.entry({}, 'URL for message: https://mail.google.com/mail?authuser=' +
+        emailAddress + '#all/' + msg.id));
     })
     .catch((err) => {
       // Handle unexpected errors
       if (!err.message || err.message !== config.NO_LABEL_MATCH) {
-        log.error(err);
+        log.error(log.entry({}, err));
       }
     });
 };
