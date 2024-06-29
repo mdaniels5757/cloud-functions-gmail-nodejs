@@ -20,17 +20,16 @@ const oauth = require('./lib/oauth');
 const gmail = google.gmail({ version: 'v1', auth: oauth.client });
 const querystring = require('querystring');
 const bunyan = require('bunyan');
-// const { log } = require('console');
-// const {LoggingBunyan} = require('@google-cloud/logging-bunyan');
-// const loggingBunyan = new LoggingBunyan();
+const { LoggingBunyan } = require('@google-cloud/logging-bunyan');
+const loggingBunyan = new LoggingBunyan({
+  redirectToStdout: true,
+  skipParentEntryForCloudRun: true
+});
 const logger = bunyan.createLogger({
   name: 'gmail-notifier',
   src: true,
   streams: [
-    {
-      stream: process.stderr,
-      level: 'debug'
-    }
+    loggingBunyan.stream('debug')
   ]
 });
 
@@ -72,9 +71,7 @@ exports.oauth2callback = (req, res) => {
         userId: 'me'
       });
     })
-    .then((profile) => {
-      return Promise.resolve(profile.data.emailAddress);
-    })
+    .then((profile) => profile.data.emailAddress)
     .then((emailAddress) => {
       // Store token in Datastore
       return Promise.all([
@@ -198,37 +195,39 @@ exports.onNewMessage = (event) => {
 
   logger.debug({ entry: 'Decoded event :\n' + JSON.stringify(eventDataObj, null, 4) });
   logger.debug({ entry: 'Decoded event history ID:\n' + eventDataObj.historyId });
+  logger.debug({ entry: 'Typeof Decoded event history ID:\n' + typeof eventDataObj.historyId });
 
   const emailAddress = eventDataObj.emailAddress;
   oauth.fetchToken(emailAddress)
     .then(() => {
       return gmail.users.messages.list({
         userId: emailAddress,
-        includeSpamTrash: true
+        includeSpamTrash: true,
+        maxResults: 10
       });
     })
     .then(async (list) => {
       logger.debug({ entry: 'list: ' + list });
       logger.debug({ entry: 'pretty list: ' + JSON.stringify(list, null, 4) });
       for (const msgFromList of list.data.messages) {
-        logger.debug({ entry: 'typeof msgFromList: ' + typeof msgFromList });
-        logger.debug({ entry: 'msgFromList: ' + msgFromList });
         const msgOrNull = await gmail.users.messages.get({
           userId: emailAddress,
           id: msgFromList.id
         })
           .then((fullMsg) => {
             logger.debug({ entry: 'fullMsg is now ' + JSON.stringify(fullMsg, null, 4) });
-            if (parseInt(fullMsg.historyId, 10) === eventDataObj.historyId) {
+            logger.debug({ entry: 'typeof fullMsg.data.historyId: ' + typeof fullMsg.data.historyId });
+            logger.debug({ entry: 'fullMsg.data.historyId: ' + fullMsg.data.historyId });
+            if (parseInt(fullMsg.data.historyId, 10) === eventDataObj.historyId) {
               logger.info({ entry: 'Found it! fullMsg = ' + JSON.stringify(fullMsg, null, 4) });
-              return fullMsg;
+              return fullMsg.data;
             } else {
               return null;
             }
           });
 
         logger.debug({ entry: 'typeof msgOrNull: ' + typeof msgOrNull });
-        logger.debug({ entry: 'msgOrNull: ' + msgOrNull });
+        logger.debug({ entry: 'msgOrNull: ' + JSON.stringify(msgOrNull, null, 4) });
         if (msgOrNull != null) {
           // We found it!
           logger.info({ entry: 'Still found it! returning ' + msgOrNull });
