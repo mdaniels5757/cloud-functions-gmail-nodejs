@@ -25,7 +25,7 @@ const bunyan = require('bunyan');
 // const loggingBunyan = new LoggingBunyan();
 const logger = bunyan.createLogger({
   name: 'gmail-notifier',
-  // src: true,
+  src: true,
   streams: [
     {
       stream: process.stderr,
@@ -189,6 +189,71 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
+  logger.info({ entry: 'New event!' });
+  logger.debug({ entry: 'Raw event:\n' + JSON.stringify(event, null, 4) });
+
+  // Parse the Pub/Sub message
+  const eventDataStr = Buffer.from(event.data, 'base64').toString('ascii');
+  const eventDataObj = JSON.parse(eventDataStr);
+
+  logger.debug({ entry: 'Decoded event :\n' + JSON.stringify(eventDataObj, null, 4) });
+  logger.debug({ entry: 'Decoded event history ID:\n' + eventDataObj.historyId });
+
+  const emailAddress = eventDataObj.emailAddress;
+  oauth.fetchToken(emailAddress)
+    .then(() => {
+      return gmail.users.messages.list({
+        userId: emailAddress,
+        includeSpamTrash: true
+      });
+    })
+    .then((list) => {
+      for (const msgFromList in list.data.messages) {
+        const msgOrNull = gmail.users.messages.get({
+          userId: emailAddress,
+          id: msgFromList.id
+        })
+          .then((fullMsg) => {
+            logger.debug({ entry: 'fullMsg is now ' + JSON.stringify(fullMsg, null, 4) });
+            if (parseInt(fullMsg.historyId, 10) === eventDataObj.historyId) {
+              logger.info({ entry: 'Found it! fullMsg = ' + JSON.stringify(fullMsg, null, 4) });
+              return fullMsg;
+            } else {
+              return null;
+            }
+          });
+
+        logger.debug({ entry: 'msgOrNull: ' + msgOrNull });
+        if (msgOrNull != null) {
+          // We found it!
+          logger.info({ entry: 'Still found it! returning ' + JSON.stringify(msgOrNull, null, 4) });
+          return msgOrNull;
+        }
+      }
+
+      logger.error({ entry: 'Returning null :(' });
+      logger.warn({ entry: 'List was: ' + JSON.stringify(list, null, 4) });
+      Promise.reject(new Error('Could not find message with historyId ' + eventDataObj.historyId));
+    })
+    .then((msg) => {
+      logger.info({ entry: 'Message metadata:\n' + JSON.stringify(msg, null, 4) });
+      logger.info({ entry: 'URL for message: https://mail.google.com/mail?authuser=' + emailAddress + '#all/' + msg.id });
+      // const notification = {
+
+      // }
+
+      // request(notification, function (notifError, notifResponse, notifBody) {
+      //   if (notifError) logger.error({ entry: })
+      // });
+    })
+    .catch((err) => {
+      // Handle unexpected errors
+      logger.error({ entry: 'Caught error: ' + err });
+    });
+};
+
+/*
+exports.onNewMessage = (event) => {
   const { Datastore } = require('@google-cloud/datastore');
   const datastore = new Datastore({ databaseId: 'gmail-notifier' });
   // const request = require('teeny-request').teenyRequest;
@@ -260,7 +325,7 @@ exports.onNewMessage = (event) => {
           }
         });
     })
-    .then((lastHistoryId) => {
+    .then(([lastHistoryId, _]) => {
       logger.info({ entry: 'lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4) });
       return gmail.users.history.list({
         userId: emailAddress,
@@ -268,13 +333,18 @@ exports.onNewMessage = (event) => {
         historyTypes: ['messageAdded']
       });
     })
-    .then((history) => {
-      logger.info({ entry: 'History:\n' + JSON.stringify(history, null, 4) });
-      logger.info({ entry: 'History[0]:\n' + JSON.stringify(history[0], null, 4) });
-      logger.info({ entry: 'History.history:\n' + JSON.stringify(history.history, null, 4) });
+    .then((response) => {
+      logger.info({ entry: 'response:\n' + JSON.stringify(response, null, 4) });
+      logger.info({ entry: 'response.data.history:\n' + JSON.stringify(response.data.history, null, 4) });
+      logger.info({ entry: 'response.data.history[response.data.history.length - 1]:\n' + JSON.stringify(response.data.history[response.data.history.length - 1], null, 4) });
+      var history = response.data.history;
+      gmail.users.messages.list({
+        userId: emailAddress,
+        q: 'in:anywhere'
+      })
       return gmail.users.messages.get({
         userId: emailAddress,
-        id: history[0].messagesAdded.message.id,
+        id: history.messagesAdded.message.id,
         format: 'metadata'
       });
     }) // Most recent message
@@ -294,3 +364,4 @@ exports.onNewMessage = (event) => {
       logger.error({ entry: 'Caught error: ' + err });
     });
 };
+*/

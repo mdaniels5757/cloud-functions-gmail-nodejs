@@ -5,7 +5,9 @@ name: Node.js CI + Deploy to Google Cloud Functions
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - master
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
