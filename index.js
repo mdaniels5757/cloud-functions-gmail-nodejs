@@ -209,8 +209,8 @@ exports.onNewMessage = (event) => {
     })
     .then(async (list) => {
       logger.debug({ entry: 'list: ' + list });
-      logger.debug({ entry: 'pretty list: ' + JSON.stringify(list) });
-      for (const msgFromList in list.data.messages) {
+      logger.debug({ entry: 'pretty list: ' + JSON.stringify(list, null, 4) });
+      for (const msgFromList of list.data.messages) {
         logger.debug({ entry: 'typeof msgFromList: ' + typeof msgFromList });
         logger.debug({ entry: 'msgFromList: ' + msgFromList });
         const msgOrNull = await gmail.users.messages.get({
