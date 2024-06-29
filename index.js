@@ -28,7 +28,7 @@ const logger = bunyan.createLogger({
   src: true,
   streams: [
     {
-      stream: process.stdout,
+      stream: process.stderr,
       level: 'debug'
     }
   ]
@@ -41,7 +41,6 @@ const logger = bunyan.createLogger({
  */
 exports.oauth2init = (_, res) => {
   // Define OAuth2 scopes
-
   const scopes = [
     'https://www.googleapis.com/auth/gmail.readonly'
   ];
@@ -222,9 +221,12 @@ exports.onNewMessage = (event) => {
               logger.error({ entry: 'Caught an additional error: ' + e2 });
             });
 
-          throw e;
+          Promise.reject(e);
         })
         .then((value) => {
+          logger.info({ entry: 'typeof(value) :' + typeof value });
+          logger.info({ entry: 'value of value: ' + value });
+          logger.info({ entry: 'JSON of value: ' + JSON.stringify(value, null, 4) });
           if (value === null || value === '') {
             // No such key yet if we got here, so we'll store one.
             // We'll miss this message, but that's ok.

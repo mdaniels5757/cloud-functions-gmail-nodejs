@@ -54,6 +54,7 @@ jobs:
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+          service_account: oauth2init@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
   deploy_oauth2callback:
     runs-on: ubuntu-latest
     needs: build
@@ -81,6 +82,7 @@ jobs:
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+          service_account: oauth2callback@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
   deploy_listLabels:
     runs-on: ubuntu-latest
     needs: build
@@ -108,6 +110,7 @@ jobs:
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+          service_account: listlabels@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
   deploy_initWatch:
     runs-on: ubuntu-latest
     needs: build
@@ -135,6 +138,7 @@ jobs:
           secrets: |-
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
+          service_account: initwatch@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
   deploy_onNewMessage:
     runs-on: ubuntu-latest
     needs: build
@@ -163,5 +167,7 @@ jobs:
             GOOGLE_CLIENT_ID=projects/222166737032/secrets/GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET=projects/222166737032/secrets/GOOGLE_CLIENT_SECRET
             PUSHOVER_USER_KEY=projects/222166737032/secrets/PUSHOVER_USER_KEY
+            PUSHOVER_API_KEY=projects/222166737032/secrets/PUSHOVER_API_KEY
           event_trigger_type: google.cloud.pubsub.topic.v1.messagePublished
           event_trigger_pubsub_topic: projects/${{ secrets.GCLOUD_PROJECT }}/topics/${{ secrets.TOPIC_ID }}
+          service_account: onnewmessage@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
