@@ -216,20 +216,24 @@ exports.onNewMessage = (event) => {
       return datastore.get(datastore.key(['lastHistoryId', emailAddress]));
     })
     .then((datastoreData) => {
-      logger.debug({ entry: JSON.stringify(datastoreData, null, 4) });
+      logger.debug({ entry: 'full datastore entry: ' + JSON.stringify(datastoreData, null, 4) });
       return datastoreData[0].historyId;
     })
     .then((lastHistoryId) => {
       logger.debug({ entry: 'lastHistoryId from datastore: ' + lastHistoryId });
+      logger.debug({ entry: 'typeof lastHistoryId from datastore: ' + typeof lastHistoryId });
       return gmail.users.history.list({
         userId: emailAddress,
-        startHistoryId: lastHistoryId,
-        maxResults: 10
+        startHistoryId: lastHistoryId
       });
     })
     .then((res) => {
-      logger.debug({ entry: 'history.list results: ' + JSON.stringify(res, null, 4) });
+      logger.debug({ entry: 'history.list results: ' + JSON.stringify(res.data.history, null, 4) });
       for (const item of res.data.history) {
+        logger.debug({ entry: 'item: ' + JSON.stringify(item) });
+        logger.debug({ entry: 'item.id: ' + JSON.stringify(item.id) });
+        logger.debug({ entry: 'typeof item.id: ' + typeof JSON.stringify(item.id) });
+
         if (item.id === eventDataObj.historyId) {
           return item;
         }
