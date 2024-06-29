@@ -12,7 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 'use strict';
 
 const { google } = require('googleapis');
@@ -20,10 +19,20 @@ const config = require('./config');
 const oauth = require('./lib/oauth');
 const gmail = google.gmail({ version: 'v1', auth: oauth.client });
 const querystring = require('querystring');
-const { Logging } = require('@google-cloud/logging');
-
-const logging = new Logging();
-const log = logging.logSync('gmail-notifier');
+const bunyan = require('bunyan');
+const { log } = require('console');
+// const {LoggingBunyan} = require('@google-cloud/logging-bunyan');
+// const loggingBunyan = new LoggingBunyan();
+const logger = bunyan.createLogger({
+  name: 'gmail-notifier',
+  src: true,
+  streams: [
+    {
+      stream: process.stdout,
+      level: 'debug'
+    }
+  ]
+});
 
 /**
  * Request an OAuth 2.0 authorization code
@@ -76,11 +85,14 @@ exports.oauth2callback = (req, res) => {
     })
     .then(([emailAddress, _]) => {
       // Respond to request
+      logger.info('Log initialized for ' + emailAddress);
       res.redirect(`/initWatch?emailAddress=${querystring.escape(emailAddress)}`);
     })
     .catch((err) => {
       // Handle error
-      log.error(log.entry({}, err));
+      // log.error(log.entry({}, err));
+      logger.error(err);
+      // console.log(err)
       res.status(500).send('Something went wrong; check the logs.');
     });
 };
@@ -120,7 +132,9 @@ exports.initWatch = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        log.error(log.entry({}, err));
+        // log.error(log.entry({}, err));
+        logger.error(err);
+        // console.log(err);
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
@@ -170,7 +184,9 @@ exports.listLabels = (req, res) => {
       if (err.message === config.UNKNOWN_USER_MESSAGE) {
         res.redirect('/oauth2init');
       } else {
-        log.error(log.entry({}, err));
+        // log.error(log.entry({}, err));
+        logger.error(err);
+        // console.log(err);
         res.status(500).send('Something went wrong; check the logs.');
       }
     });
@@ -184,31 +200,47 @@ exports.onNewMessage = (event) => {
   const datastore = new Datastore({ databaseId: 'gmail-notifier' });
   // const request = require('teeny-request').teenyRequest;
 
-  log.info(log.entry({}, 'New event!'));
-  log.debug(log.entry({}, 'Raw event:\n' + JSON.stringify(event, null, 4)));
+  // log.info(log.entry({}, 'New event!'));
+  logger.info('New event!');
+  // console.log('New event!');
+  // log.debug(log.entry({}, 'Raw event:\n' + JSON.stringify(event, null, 4)));
+  logger.debug('Raw event:\n' + JSON.stringify(event, null, 4));
+  // console.log('Raw event:\n' + JSON.stringify(event, null, 4));
   // Parse the Pub/Sub message
   const dataStr = Buffer.from(event.data, 'base64').toString('ascii');
   const dataObj = JSON.parse(dataStr);
 
-  log.debug(log.entry({}, 'Decoded:\n' + JSON.stringify(dataObj, null, 4)));
+  // log.debug(log.entry({}, 'Decoded:\n' + JSON.stringify(dataObj, null, 4)));
+  // console.log('Decoded:\n' + JSON.stringify(dataObj, null, 4));
+  logger.debug('Decoded:\n' + JSON.stringify(dataObj, null, 4));
 
   const emailAddress = dataObj.emailAddress;
-  return oauth.fetchToken(emailAddress)
+  oauth.fetchToken(emailAddress)
     .then(() => {
-      // See if there's a key
       return datastore.get({
         key: datastore.key(['lastHistoryId', emailAddress])
-      }).catch(
+      })
+        .then((value) => {
+        // console.log("data value: " + value);
+        // log.info(log.entry({}, "data value: " + value));
+          logger.info('data value: ' + value);
+          Promise.resolve(value);
+        })
+        .catch((e) => {
         // No such key yet if we got here, so we'll store one.
         // We'll miss this message, but that's ok.
-        datastore.save({
-          key: datastore.key(['lastHistoryId', emailAddress]),
-          data: dataObj.historyId
-        })
-      );
+          datastore.save({
+            key: datastore.key(['lastHistoryId', emailAddress]),
+            data: dataObj.historyId
+          });
+          // log.error(log.entry({}, 'Caught error: ' + e));
+          logger.error(e);
+          Promise.reject(e);
+        });
     })
     .then((lastHistoryId) => {
-      log.error(log.entry({}, 'lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4)));
+      // log.error(log.entry({}, 'lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4)));
+      logger.info('lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4));
       return gmail.users.history.list({
         userId: emailAddress,
         startHistoryId: lastHistoryId[0],
@@ -216,9 +248,12 @@ exports.onNewMessage = (event) => {
       });
     })
     .then((history) => {
-      log.error(log.entry({}, 'History:\n' + JSON.stringify(history, null, 4)));
-      log.error(log.entry({}, 'History[0]:\n' + JSON.stringify(history[0], null, 4)));
-      log.error(log.entry({}, 'History.history:\n' + JSON.stringify(history.history, null, 4)));
+      // log.error(log.entry({}, 'History:\n' + JSON.stringify(history, null, 4)));
+      // log.error(log.entry({}, 'History[0]:\n' + JSON.stringify(history[0], null, 4)));
+      // log.error(log.entry({}, 'History.history:\n' + JSON.stringify(history.history, null, 4)));
+      logger.info('History:\n' + JSON.stringify(history, null, 4));
+      logger.info('History[0]:\n' + JSON.stringify(history[0], null, 4));
+      logger.info('History.history:\n' + JSON.stringify(history.history, null, 4));
       return gmail.users.messages.get({
         userId: emailAddress,
         id: history[0].messagesAdded.message.id,
@@ -226,9 +261,10 @@ exports.onNewMessage = (event) => {
       });
     }) // Most recent message
     .then((msg) => {
-      log.error(log.entry({}, 'Message metadata:\n' + JSON.stringify(msg, null, 4)));
-      log.error(log.entry({}, 'URL for message: https://mail.google.com/mail?authuser=' +
-        emailAddress + '#all/' + msg.id));
+      // log.error(log.entry({}, 'Message metadata:\n' + JSON.stringify(msg, null, 4)));
+      logger.info('Message metadata:\n' + JSON.stringify(msg, null, 4));
+      logger.info('URL for message: https://mail.google.com/mail?authuser=' + emailAddress + '#all/' + msg.id);
+      // log.error(log.entry({}, 'URL for message: https://mail.google.com/mail?authuser=' + emailAddress + '#all/' + msg.id));
       // const notification = {
 
       // }
@@ -240,7 +276,8 @@ exports.onNewMessage = (event) => {
     .catch((err) => {
       // Handle unexpected errors
       if (!err.message || err.message !== config.NO_LABEL_MATCH) {
-        log.error(log.entry({}, err));
+        // log.error(log.entry({}, err));
+        log.error(err);
       }
     });
 };
