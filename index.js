@@ -25,7 +25,7 @@ const bunyan = require('bunyan');
 // const loggingBunyan = new LoggingBunyan();
 const logger = bunyan.createLogger({
   name: 'gmail-notifier',
-  src: true,
+  // src: true,
   streams: [
     {
       stream: process.stderr,
@@ -200,52 +200,63 @@ exports.onNewMessage = (event) => {
   const dataObj = JSON.parse(dataStr);
 
   logger.debug({ entry: 'Decoded:\n' + JSON.stringify(dataObj, null, 4) });
+  logger.debug({ entry: 'Decoded history ID:\n' + dataObj.historyId });
 
   const emailAddress = dataObj.emailAddress;
   oauth.fetchToken(emailAddress)
     .then(() => {
       return datastore.get(datastore.key(['lastHistoryId', emailAddress]))
-        .catch((e) => {
-          // No such key yet if we got here, so we'll store one.
-          // We'll miss this message, but that's ok.
-          logger.error({ entry: 'Caught ' + e });
-          datastore.save({
-            key: datastore.key(['lastHistoryId', emailAddress]),
-            data: dataObj.historyId
-          })
-            .then((datastoreResponse) => {
-              logger.error({ entry: 'Saved in datastore after ' + e });
-              logger.error({ entry: 'Datastore response was ' + datastoreResponse.toJSON() });
-            })
-            .catch((e2) => {
-              logger.error({ entry: 'Caught an additional error: ' + e2 });
-            });
+      // .catch((e) => {
+      //   // No such key yet if we got here, so we'll store one.
+      //   // We'll miss this message, but that's ok.
+      //   logger.error({ entry: 'Caught ' + e });
+      //   datastore.save({
+      //     key: datastore.key(['lastHistoryId', emailAddress]),
+      //     data: dataObj.historyId
+      //   })
+      //     .then((datastoreResponse) => {
+      //       logger.error({ entry: 'Saved in datastore after ' + e });
+      //       logger.error({ entry: 'Datastore response was ' + datastoreResponse.toJSON() });
+      //     })
+      //     .catch((e2) => {
+      //       logger.error({ entry: 'Caught an additional error: ' + e2 });
+      //     });
 
-          Promise.reject(e);
-        })
+      //   Promise.reject(e);
+      // })
         .then((value) => {
           logger.info({ entry: 'typeof(value) :' + typeof value });
           logger.info({ entry: 'value of value: ' + value });
           logger.info({ entry: 'JSON of value: ' + JSON.stringify(value, null, 4) });
-          if (value === null || value === '') {
+          if (value == null || value === '' ||
+          (Object.prototype.hasOwnProperty.call(value, 'length') && value.length === 0) ||
+          (Object.prototype.hasOwnProperty.call(value, 'length') && value.length === 1 && value[0] == null)) {
             // No such key yet if we got here, so we'll store one.
             // We'll miss this message, but that's ok.
-            logger.error({ entry: 'data value: ' + value });
+            logger.error({ entry: 'Setting key: ' + ['lastHistoryId', emailAddress] });
+            logger.error({ entry: 'Setting data: ' + JSON.stringify({ historyId: dataObj.historyId }) });
             datastore.save({
               key: datastore.key(['lastHistoryId', emailAddress]),
-              data: dataObj.historyId
+              data: { historyId: dataObj.historyId }
             })
               .then((datastoreResponse) => {
                 logger.error({ entry: 'Saved in datastore after null/empty string value' });
-                logger.error({ entry: 'Datastore response was ' + datastoreResponse.toJSON() });
+                logger.error({ entry: 'Datastore response was ' + datastoreResponse });
               })
               .catch((e2) => {
                 logger.error({ entry: 'Caught an error: ' + e2 });
               });
             return Promise.reject(new Error('value is empty!'));
           } else {
-            logger.info({ entry: 'data value: ' + value });
-            return Promise.resolve(value);
+            logger.info({ entry: 'Successfully got value!' });
+            return Promise.all([
+              Promise.resolve(value[0].historyId),
+              // Update history value
+              datastore.save({
+                key: datastore.key(['lastHistoryId', emailAddress]),
+                data: { historyId: dataObj.historyId }
+              })
+            ]);
           }
         });
     })
@@ -253,7 +264,7 @@ exports.onNewMessage = (event) => {
       logger.info({ entry: 'lastHistoryId:\n' + JSON.stringify(lastHistoryId, null, 4) });
       return gmail.users.history.list({
         userId: emailAddress,
-        startHistoryId: lastHistoryId[0],
+        startHistoryId: lastHistoryId,
         historyTypes: ['messageAdded']
       });
     })
