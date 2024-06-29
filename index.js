@@ -95,6 +95,8 @@ exports.oauth2callback = (req, res) => {
  * Initialize a watch on the user's inbox
  */
 exports.initWatch = (req, res) => {
+  const { Datastore } = require('@google-cloud/datastore');
+  const datastore = new Datastore({ databaseId: 'gmail-notifier' });
   // Require a valid email address
   if (!req.query.emailAddress) {
     return res.status(400).send('No emailAddress specified.');
@@ -113,6 +115,14 @@ exports.initWatch = (req, res) => {
         userId: email,
         resource: {
           topicName: config.TOPIC_NAME
+        }
+      });
+    })
+    .then((watchValues) => {
+      return datastore.save({
+        key: datastore.key(['lastHistoryId', email]),
+        data: {
+          historyId: watchValues.historyId
         }
       });
     })
@@ -186,6 +196,8 @@ exports.listLabels = (req, res) => {
 * Process new messages as they are received
 */
 exports.onNewMessage = (event) => {
+  const { Datastore } = require('@google-cloud/datastore');
+  const datastore = new Datastore({ databaseId: 'gmail-notifier' });
   logger.info({ entry: 'New event!' });
   logger.debug({ entry: 'Raw event:\n' + JSON.stringify(event, null, 4) });
 
@@ -194,50 +206,38 @@ exports.onNewMessage = (event) => {
   const eventDataObj = JSON.parse(eventDataStr);
 
   logger.debug({ entry: 'Decoded event :\n' + JSON.stringify(eventDataObj, null, 4) });
+  eventDataObj.historyId = eventDataObj.historyId.toString();
   logger.debug({ entry: 'Decoded event history ID:\n' + eventDataObj.historyId });
   logger.debug({ entry: 'Typeof Decoded event history ID:\n' + typeof eventDataObj.historyId });
 
   const emailAddress = eventDataObj.emailAddress;
   oauth.fetchToken(emailAddress)
     .then(() => {
-      return gmail.users.messages.list({
+      return datastore.get(datastore.key(['lastHistoryId', emailAddress]));
+    })
+    .then((datastoreData) => {
+      logger.debug({ entry: JSON.stringify(datastoreData, null, 4) });
+      return datastoreData[0].historyId;
+    })
+    .then((lastHistoryId) => {
+      logger.debug({ entry: 'lastHistoryId from datastore: ' + lastHistoryId });
+      return gmail.users.history.list({
         userId: emailAddress,
-        includeSpamTrash: true,
+        startHistoryId: lastHistoryId,
         maxResults: 10
       });
     })
-    .then(async (list) => {
-      logger.debug({ entry: 'list: ' + list });
-      logger.debug({ entry: 'pretty list: ' + JSON.stringify(list, null, 4) });
-      for (const msgFromList of list.data.messages) {
-        const msgOrNull = await gmail.users.messages.get({
-          userId: emailAddress,
-          id: msgFromList.id
-        })
-          .then((fullMsg) => {
-            logger.debug({ entry: 'fullMsg is now ' + JSON.stringify(fullMsg, null, 4) });
-            logger.debug({ entry: 'typeof fullMsg.data.historyId: ' + typeof fullMsg.data.historyId });
-            logger.debug({ entry: 'fullMsg.data.historyId: ' + fullMsg.data.historyId });
-            if (parseInt(fullMsg.data.historyId, 10) === eventDataObj.historyId) {
-              logger.info({ entry: 'Found it! fullMsg = ' + JSON.stringify(fullMsg, null, 4) });
-              return fullMsg.data;
-            } else {
-              return null;
-            }
-          });
-
-        logger.debug({ entry: 'typeof msgOrNull: ' + typeof msgOrNull });
-        logger.debug({ entry: 'msgOrNull: ' + JSON.stringify(msgOrNull, null, 4) });
-        if (msgOrNull != null) {
-          // We found it!
-          logger.info({ entry: 'Still found it! returning ' + msgOrNull });
-          return msgOrNull;
+    .then((res) => {
+      logger.debug({ entry: 'history.list results: ' + JSON.stringify(res, null, 4) });
+      for (const item of res.data.history) {
+        if (item.id === eventDataObj.historyId) {
+          return item;
         }
       }
-
-      logger.error({ entry: 'Returning null :(' });
-      logger.warn({ entry: 'List was: ' + JSON.stringify(list, null, 4) });
-      Promise.reject(new Error('Could not find message with historyId ' + eventDataObj.historyId));
+      return Promise.reject(new Error('Failed to find history ID'));
+    })
+    .then((item) => {
+      logger.info({ entry: 'Item received: ' + JSON.stringify(item, null, 4) });
     })
     .then((msg) => {
       logger.info({ entry: 'Message metadata:\n' + JSON.stringify(msg, null, 4) });
@@ -369,3 +369,46 @@ exports.onNewMessage = (event) => {
     });
 };
 */
+
+/*
+
+    .then(() => {
+      return gmail.users.messages.list({
+        userId: emailAddress,
+        includeSpamTrash: true,
+        maxResults: 10
+      });
+    })
+    .then(async (list) => {
+      logger.debug({ entry: 'list: ' + list });
+      logger.debug({ entry: 'pretty list: ' + JSON.stringify(list, null, 4) });
+      for (const msgFromList of list.data.messages) {
+        const msgOrNull = await gmail.users.messages.get({
+          userId: emailAddress,
+          id: msgFromList.id
+        })
+          .then((fullMsg) => {
+            logger.debug({ entry: 'fullMsg is now ' + JSON.stringify(fullMsg, null, 4) });
+            logger.debug({ entry: 'typeof fullMsg.data.historyId: ' + typeof fullMsg.data.historyId });
+            logger.debug({ entry: 'fullMsg.data.historyId: ' + fullMsg.data.historyId });
+            if (parseInt(fullMsg.data.historyId, 10) === eventDataObj.historyId) {
+              logger.info({ entry: 'Found it! fullMsg = ' + JSON.stringify(fullMsg, null, 4) });
+              return fullMsg.data;
+            } else {
+              return null;
+            }
+          });
+
+        logger.debug({ entry: 'typeof msgOrNull: ' + typeof msgOrNull });
+        logger.debug({ entry: 'msgOrNull: ' + JSON.stringify(msgOrNull, null, 4) });
+        if (msgOrNull != null) {
+          // We found it!
+          logger.info({ entry: 'Still found it! returning ' + msgOrNull });
+          return msgOrNull;
+        }
+      }
+
+      logger.error({ entry: 'Returning null :(' });
+      logger.warn({ entry: 'List was: ' + JSON.stringify(list, null, 4) });
+      Promise.reject(new Error('Could not find message with historyId ' + eventDataObj.historyId));
+    }) */
