@@ -205,22 +205,28 @@ exports.onNewMessage = (event) => {
   const emailAddress = dataObj.emailAddress;
   oauth.fetchToken(emailAddress)
     .then(() => {
-      return datastore.get({
-        key: datastore.key(['lastHistoryId', emailAddress])
-      })
-        .then((value) => {
-          logger.info({ entry: 'data value: ' + value });
-          return Promise.resolve(value);
-        })
+      return datastore.get(datastore.key(['lastHistoryId', emailAddress]))
         .catch((e) => {
-        // No such key yet if we got here, so we'll store one.
-        // We'll miss this message, but that's ok.
+          // No such key yet if we got here, so we'll store one.
+          // We'll miss this message, but that's ok.
+          logger.error({ entry: 'Caught ' + e });
           datastore.save({
             key: datastore.key(['lastHistoryId', emailAddress]),
             data: dataObj.historyId
-          });
-          logger.error({ entry: e });
-          return Promise.reject(e);
+          })
+            .then((datastoreResponse) => {
+              logger.error({ entry: 'Saved in datastore after ' + e });
+              logger.error({ entry: 'Datastore response was ' + datastoreResponse.toJSON() });
+            })
+            .catch((e2) => {
+              logger.error({ entry: 'Caught an additional error: ' + e2 });
+            });
+
+          throw e;
+        })
+        .then((value) => {
+          logger.info({ entry: 'data value: ' + value });
+          return Promise.resolve(value);
         });
     })
     .then((lastHistoryId) => {
@@ -254,6 +260,6 @@ exports.onNewMessage = (event) => {
     })
     .catch((err) => {
       // Handle unexpected errors
-      logger.error({ entry: err });
+      logger.error({ entry: 'Caught error: ' + err });
     });
 };
