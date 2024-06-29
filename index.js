@@ -207,9 +207,13 @@ exports.onNewMessage = (event) => {
         includeSpamTrash: true
       });
     })
-    .then((list) => {
+    .then(async (list) => {
+      logger.debug({ entry: 'list: ' + list });
+      logger.debug({ entry: 'pretty list: ' + JSON.stringify(list) });
       for (const msgFromList in list.data.messages) {
-        const msgOrNull = gmail.users.messages.get({
+        logger.debug({ entry: 'typeof msgFromList: ' + typeof msgFromList });
+        logger.debug({ entry: 'msgFromList: ' + msgFromList });
+        const msgOrNull = await gmail.users.messages.get({
           userId: emailAddress,
           id: msgFromList.id
         })
@@ -223,10 +227,11 @@ exports.onNewMessage = (event) => {
             }
           });
 
+        logger.debug({ entry: 'typeof msgOrNull: ' + typeof msgOrNull });
         logger.debug({ entry: 'msgOrNull: ' + msgOrNull });
         if (msgOrNull != null) {
           // We found it!
-          logger.info({ entry: 'Still found it! returning ' + JSON.stringify(msgOrNull, null, 4) });
+          logger.info({ entry: 'Still found it! returning ' + msgOrNull });
           return msgOrNull;
         }
       }
@@ -237,7 +242,7 @@ exports.onNewMessage = (event) => {
     })
     .then((msg) => {
       logger.info({ entry: 'Message metadata:\n' + JSON.stringify(msg, null, 4) });
-      logger.info({ entry: 'URL for message: https://mail.google.com/mail?authuser=' + emailAddress + '#all/' + msg.id });
+      // logger.info({ entry: 'URL for message: https://mail.google.com/mail?authuser=' + emailAddress + '#all/' + msg.id });
       // const notification = {
 
       // }
