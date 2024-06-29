@@ -225,8 +225,26 @@ exports.onNewMessage = (event) => {
           throw e;
         })
         .then((value) => {
-          logger.info({ entry: 'data value: ' + value });
-          return Promise.resolve(value);
+          if (value === null || value === '') {
+            // No such key yet if we got here, so we'll store one.
+            // We'll miss this message, but that's ok.
+            logger.error({ entry: 'data value: ' + value });
+            datastore.save({
+              key: datastore.key(['lastHistoryId', emailAddress]),
+              data: dataObj.historyId
+            })
+              .then((datastoreResponse) => {
+                logger.error({ entry: 'Saved in datastore after null/empty string value' });
+                logger.error({ entry: 'Datastore response was ' + datastoreResponse.toJSON() });
+              })
+              .catch((e2) => {
+                logger.error({ entry: 'Caught an error: ' + e2 });
+              });
+            return Promise.reject(new Error('value is empty!'));
+          } else {
+            logger.info({ entry: 'data value: ' + value });
+            return Promise.resolve(value);
+          }
         });
     })
     .then((lastHistoryId) => {
